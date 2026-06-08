@@ -52,6 +52,7 @@ function App() {
   const [weather, setWeather] = useState(null);
   const [ground, setGround] = useState(null);
   const [safety, setSafety] = useState(null);
+  const [action, setAction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -60,18 +61,34 @@ function App() {
     const text = name.toLowerCase();
 
     if (text.includes("캠핑") || text.includes("야영")) {
-      return { type: "camping", groundBonus: -10, desc: "캠핑·야영 이용 가능성이 있는 장소" };
+      return {
+        type: "camping",
+        groundBonus: -10,
+        desc: "캠핑·야영 이용 가능성이 있는 장소",
+      };
     }
 
     if (text.includes("한강") || text.includes("강") || text.includes("하천")) {
-      return { type: "river", groundBonus: -3, desc: "강변에 가까워 지면·수위 확인이 필요한 장소" };
+      return {
+        type: "river",
+        groundBonus: -3,
+        desc: "강변에 가까워 지면·수위 확인이 필요한 장소",
+      };
     }
 
     if (text.includes("공원") || text.includes("숲")) {
-      return { type: "park", groundBonus: 0, desc: "잔디·흙길 이용 가능성이 있는 야외 장소" };
+      return {
+        type: "park",
+        groundBonus: 0,
+        desc: "잔디·흙길 이용 가능성이 있는 야외 장소",
+      };
     }
 
-    return { type: "outdoor", groundBonus: 0, desc: "검색한 야외 장소" };
+    return {
+      type: "outdoor",
+      groundBonus: 0,
+      desc: "검색한 야외 장소",
+    };
   };
 
   const calcGroundStatus = ({ temp, humidity, wind, clouds, rainNow, groundBonus }) => {
@@ -176,6 +193,34 @@ function App() {
     };
   };
 
+  const calcAction = ({ ground, safety, selectedPlace }) => {
+    if (ground.score >= 75 && safety.level === "낮음") {
+      return {
+        title: "오늘의 행동 추천",
+        items: ["돗자리 사용 적합", "피크닉 가능", "그늘진 잔디 구역만 확인"],
+      };
+    }
+
+    if (ground.score >= 50) {
+      return {
+        title: "오늘의 행동 추천",
+        items: ["방수 돗자리 추천", "잔디보다 포장 구역 추천", "텐트 설치 전 지면 확인"],
+      };
+    }
+
+    if (selectedPlace.type === "camping") {
+      return {
+        title: "오늘의 행동 추천",
+        items: ["텐트 설치 주의", "방수 매트 필수", "흙바닥보다 데크 구역 추천"],
+      };
+    }
+
+    return {
+      title: "오늘의 행동 추천",
+      items: ["돗자리 사용 비추천", "포장 산책로 이용 추천", "실내 활동 고려"],
+    };
+  };
+
   const fetchWeather = async (place = selected) => {
     setLoading(true);
 
@@ -199,9 +244,13 @@ function App() {
         groundBonus: place.groundBonus || 0,
       };
 
+      const groundResult = calcGroundStatus(info);
+      const safetyResult = calcSafety({ selectedPlace: place, ...info });
+
       setWeather(info);
-      setGround(calcGroundStatus(info));
-      setSafety(calcSafety({ selectedPlace: place, ...info }));
+      setGround(groundResult);
+      setSafety(safetyResult);
+      setAction(calcAction({ ground: groundResult, safety: safetyResult, selectedPlace: place }));
     } catch (error) {
       console.error(error);
       alert("API 연결 중 오류가 발생했어.");
@@ -215,9 +264,7 @@ function App() {
 
     try {
       const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(
-          searchKeyword
-        )}`,
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchKeyword)}`,
         {
           headers: {
             Authorization: `KakaoAK ${KAKAO_REST_API_KEY}`,
@@ -265,10 +312,8 @@ function App() {
   return (
     <div className="app">
       <header className="hero">
-        <div>
-          <p className="badge">날씨 × 장소 검색 × 야외 안전</p>
-          <h1>바닥 축축햇!</h1>
-        </div>
+        <p className="badge">날씨 × 장소 검색 × 야외 안전</p>
+        <h1>바닥 축축햇!</h1>
         <p>
           비가 그친 뒤에도 땅이 젖어 있으면 돗자리나 텐트 설치가 어렵습니다.
           장소 검색, 날씨 데이터, 습도·바람·강수 상태를 바탕으로 지면 마름 정도와
@@ -328,7 +373,7 @@ function App() {
 
         {loading && <p className="loading">날씨 데이터를 분석하는 중...</p>}
 
-        {weather && ground && safety && (
+        {weather && ground && safety && action && (
           <>
             <section className={`result-card ${ground.className}`}>
               <div>
@@ -350,6 +395,23 @@ function App() {
                 <p>{safety.text}</p>
               </div>
               <strong>위험도 {safety.level}</strong>
+            </section>
+
+            <section className="action-card">
+              <h2>{action.title}</h2>
+              <div className="action-list">
+                {action.items.map((item) => (
+                  <div key={item}>{item}</div>
+                ))}
+              </div>
+            </section>
+
+            <section className="weather-summary">
+              <strong>현재 날씨</strong>
+              <span>
+                {weather.description} · 기온 {Math.round(weather.temp)}℃ · 습도{" "}
+                {weather.humidity}% · 바람 {weather.wind} m/s
+              </span>
             </section>
 
             <section className="weather-grid">
@@ -390,19 +452,12 @@ function App() {
               </div>
             </section>
 
-            <section className="safety-card">
-              <h2>구현된 안전 분석 기능</h2>
-              <p>
-                카카오 장소 검색으로 선택한 위치의 좌표를 가져오고, OpenWeather API의
-                실시간 날씨 데이터를 이용해 지면 마름 점수와 강변 이용 안전도를
-                계산합니다. 캠핑장, 강변, 공원 여부에 따라 장소별 보정값도 함께 반영합니다.
-              </p>
-
-              <div className="process">
-                <div>장소 검색</div>
-                <div>좌표 기반 날씨 조회</div>
-                <div>지면 특성 보정</div>
-                <div>안전도 판단</div>
+            <section className="api-card">
+              <h2>사용 API</h2>
+              <div className="api-list">
+                <span>Kakao Local API</span>
+                <span>OpenWeather API</span>
+                <span>공공데이터포털 API 확장 가능</span>
               </div>
             </section>
           </>
