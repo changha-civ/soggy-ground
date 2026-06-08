@@ -4,11 +4,36 @@ import "./App.css";
 const OPENWEATHER_API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
 
 const places = [
-  { name: "여의도 한강공원", city: "Seoul", desc: "돗자리·피크닉 이용이 많은 대표 한강공원" },
-  { name: "뚝섬 한강공원", city: "Seoul", desc: "잔디광장과 강변 이용객이 많은 지역" },
-  { name: "난지캠핑장", city: "Seoul", desc: "비 온 뒤 지면 상태 확인이 중요한 캠핑장" },
-  { name: "잠원 한강공원", city: "Seoul", desc: "강변 산책·피크닉 수요가 높은 장소" },
-  { name: "반포 한강공원", city: "Seoul", desc: "돗자리 이용객이 많은 한강공원" },
+  {
+    name: "여의도 한강공원",
+    lat: 37.5284,
+    lon: 126.9349,
+    desc: "돗자리·피크닉 이용이 많은 대표 한강공원",
+  },
+  {
+    name: "뚝섬 한강공원",
+    lat: 37.5296,
+    lon: 127.0705,
+    desc: "잔디광장과 강변 이용객이 많은 지역",
+  },
+  {
+    name: "난지캠핑장",
+    lat: 37.5683,
+    lon: 126.8737,
+    desc: "비 온 뒤 지면 상태 확인이 중요한 캠핑장",
+  },
+  {
+    name: "잠원 한강공원",
+    lat: 37.5207,
+    lon: 127.0121,
+    desc: "강변 산책·피크닉 수요가 높은 장소",
+  },
+  {
+    name: "반포 한강공원",
+    lat: 37.5106,
+    lon: 126.9959,
+    desc: "돗자리 이용객이 많은 한강공원",
+  },
 ];
 
 function App() {
@@ -21,6 +46,7 @@ function App() {
     let score = 70;
 
     if (rainNow > 0) score -= 35;
+
     if (humidity >= 85) score -= 25;
     else if (humidity >= 70) score -= 15;
     else if (humidity <= 50) score += 10;
@@ -34,7 +60,7 @@ function App() {
     if (temp >= 24) score += 10;
     else if (temp <= 15) score -= 10;
 
-    score = Math.max(0, Math.min(100, score));
+    score = Math.max(0, Math.min(100, Math.round(score)));
 
     if (score >= 75) {
       return {
@@ -83,12 +109,12 @@ function App() {
     setLoading(true);
 
     try {
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${selected.city}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=kr`;
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${selected.lat}&lon=${selected.lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=kr`;
       const res = await fetch(url);
       const data = await res.json();
 
       if (data.cod !== 200) {
-        alert("날씨 정보를 불러오지 못했어.");
+        alert("날씨 정보를 불러오지 못했어. API 키나 배포 환경변수를 확인해줘.");
         return;
       }
 
@@ -98,7 +124,7 @@ function App() {
         wind: data.wind.speed,
         clouds: data.clouds.all,
         rainNow: data.rain?.["1h"] || 0,
-        description: data.weather[0].description,
+        description: data.weather?.[0]?.description || "정보 없음",
       };
 
       setWeather(info);
@@ -118,7 +144,7 @@ function App() {
   return (
     <div className="app">
       <header className="hero">
-        <p className="badge">Weather × Outdoor Safety</p>
+        <p className="badge">날씨 × 야외 안전</p>
         <h1>바닥 축축햇!</h1>
         <p>
           비가 그친 뒤에도 땅이 젖어 있으면 돗자리나 텐트 설치가 어렵습니다.
@@ -130,10 +156,12 @@ function App() {
       <main className="container">
         <section className="place-card">
           <h2>장소 선택</h2>
+
           <div className="place-grid">
             {places.map((place) => (
               <button
                 key={place.name}
+                type="button"
                 className={selected.name === place.name ? "place active" : "place"}
                 onClick={() => setSelected(place)}
               >
@@ -143,6 +171,8 @@ function App() {
             ))}
           </div>
         </section>
+
+        {loading && <p className="loading">날씨 데이터를 분석하는 중...</p>}
 
         {weather && ground && (
           <>
@@ -215,8 +245,6 @@ function App() {
             </section>
           </>
         )}
-
-        {loading && <p className="loading">날씨 데이터를 분석하는 중...</p>}
       </main>
     </div>
   );
